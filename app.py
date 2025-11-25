@@ -51,12 +51,12 @@ class DetailCard:
         # Распаковываем данные с проверкой
         try:
             # Пытаемся распаковать 6 значений (старая структура)
-            part_number, name, amount, parent_id, is_fastener, is_checked = self.detail_data
+            part_number, name, amount, parent_id, is_fastener, is_checked, is_borrowed = self.detail_data
         except ValueError:
             try:
                 # Пытаемся распаковать 4 значения (новая структура)
                 part_number, name, amount, parent_id = self.detail_data
-                is_fastener, is_checked = 0, 0  # Значения по умолчанию
+                is_fastener, is_checked, is_borrowed  = 0, 0, 0  # Значения по умолчанию
             except ValueError:
                 # Если структура совсем неизвестная
                 messagebox.showerror("Ошибка", "Неизвестный формат данных")
@@ -96,7 +96,7 @@ class DetailCard:
         # Переменные для флажков
         self.fastener_var = tk.BooleanVar(value=bool(is_fastener))
         self.checked_var = tk.BooleanVar(value=bool(is_checked))
-
+        self.is_borrowed = tk.BooleanVar(value=bool(is_borrowed))
         # Создаем флажки
         fastener_check = tk.Checkbutton(status_frame, text="Чертеж выпущен",
                                         variable=self.fastener_var, font=("Arial", 10))
@@ -105,6 +105,10 @@ class DetailCard:
         checked_check = tk.Checkbutton(status_frame, text="Нормоконтроль пройден",
                                        variable=self.checked_var, font=("Arial", 10))
         checked_check.grid(row=1, column=0, sticky="w", pady=2)
+
+        is_borrowed_check = tk.Checkbutton(status_frame, text="Заимствован",
+                                       variable=self.is_borrowed, font=("Arial", 10))
+        is_borrowed_check.grid(row=2, column=0, sticky="w", pady=2)
 
         # Разделитель
         separator = ttk.Separator(main_frame, orient='horizontal')
@@ -129,7 +133,8 @@ class DetailCard:
             part_number = self.detail_data[0] if self.detail_data else "Неизвестно"
             is_fastener = 1 if self.fastener_var.get() else 0
             is_checked = 1 if self.checked_var.get() else 0
-            db.update_detail_status(part_number, is_fastener, is_checked)
+            is_borrowed = 1 if self.is_borrowed.get() else 0
+            db.update_detail_status(part_number, is_fastener, is_checked, is_borrowed)
             # Здесь будет код обновления БД
             self.main_window.load_data()
             messagebox.showinfo("Сохранение", f"Статусы для {part_number} сохранены!")
@@ -149,11 +154,7 @@ class InventorMonitor:
         self.root.title("Inventor Components Monitor")
         self.root.geometry("900x700")
         self.sort_states = {}
-        # Подключение к БД
-        self.conn = sqlite3.connect('inventor_monitor.db')
-        self.cur = self.conn.cursor()
 
-        # Создаем структуру БД если нужно
 
         self.create_widgets()
         self.load_data()
@@ -206,12 +207,20 @@ class InventorMonitor:
 
         data = db.get_info_for_stats()
         # Статистические переменные
-        self.stats_vars = {
-            'total': tk.StringVar(value=f"Всего: {data[0]}"),
-            'with_drawings': tk.StringVar(value=f"С чертежами: {data[1]}"),
-            'checked': tk.StringVar(value=f"Проверено: {data[2]}"),
-            'progress': tk.StringVar(value=f"Прогресс: {data[3]}%")
-        }
+        try:
+            self.stats_vars = {
+                'total': tk.StringVar(value=f"Всего: {data[0]}"),
+                'with_drawings': tk.StringVar(value=f"С чертежами: {data[1]}"),
+                'checked': tk.StringVar(value=f"Проверено: {data[2]}"),
+                'progress': tk.StringVar(value=f"Прогресс: {data[3]}%")
+            }
+        except:
+            self.stats_vars = {
+                'total': tk.StringVar(value=f"Всего: 0"),
+                'with_drawings': tk.StringVar(value=f"С чертежами: 0"),
+                'checked': tk.StringVar(value=f"Проверено: 0"),
+                'progress': tk.StringVar(value=f"Прогресс: 0")
+            }
 
         # Создаем метки статистики
         for i, (key, var) in enumerate(self.stats_vars.items()):
@@ -231,7 +240,7 @@ class InventorMonitor:
         table_frame.pack(fill=tk.BOTH, expand=True)
 
         # Создание Treeview
-        tree = ttk.Treeview(table_frame, columns=("PartNumber", "Name", "Amount", "ParentID", "Drawing", "Checked"),
+        tree = ttk.Treeview(table_frame, columns=("PartNumber", "Name", "Amount", "ParentID", "Drawing", "Checked", "Is_borrowed"),
                             show="headings", height=15)
 
         # Настройка колонок
@@ -241,7 +250,9 @@ class InventorMonitor:
             ("Amount", "Кол-во", 80),
             ("ParentID", "ID родителя", 100),
             ("Drawing", "Чертеж", 100),
-            ("Checked", "Нормаконтроль", 120)
+            ("Checked", "Нормаконтроль", 120),
+            ("Is_borrowed", "Заим.", 120)
+
         ]
 
         for col, heading, width in columns_config:
@@ -315,12 +326,12 @@ class InventorMonitor:
         for detail in details:
             try:
                 # Пытаемся распаковать 6 значений
-                part_number, name, amount, parent_id, is_fastener, is_checked = detail
+                part_number, name, amount, parent_id, is_fastener, is_checked, is_borrowed = detail
             except ValueError:
                 try:
                     # Пытаемся распаковать 4 значения
                     part_number, name, amount, parent_id = detail
-                    is_fastener, is_checked = 0, 0  # Значения по умолчанию
+                    is_fastener, is_checked, is_borrowed  = 0, 0, 0  # Значения по умолчанию
                 except ValueError:
                     # Пропускаем некорректные данные
                     print(f"Пропущен некорректный элемент: {detail}")
@@ -329,9 +340,9 @@ class InventorMonitor:
             # Форматируем статусы
             fastener_status = "✅ Выпущен" if is_fastener else "❌ Не выпущен"
             checked_status = "✅ Пройден" if is_checked else "❌ Не пройден"
-
+            borrowed_status = "✅ Заимствован" if is_borrowed else "❌ Не заимствован"
             tree.insert("", tk.END, values=(
-                part_number, name, amount, parent_id, fastener_status, checked_status
+                part_number, name, amount, parent_id, fastener_status, checked_status, borrowed_status
             ))
 
     def load_data_from_json(self):

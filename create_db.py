@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS assembly_details (
     parent_id INTEGER DEFAULT NULL,  
     Drawing INTEGER DEFAULT 0,
     Checked INTEGER DEFAULT 0,
-    
+    Is_borrowed INTEGER DEFAULT 0,
     FOREIGN KEY (parent_id) REFERENCES assembly_details(id)
 )
 """)

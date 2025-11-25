@@ -41,15 +41,15 @@ def inset_into_details(partNumber, name, amount, parent):
     con.commit()
 
 def get_details():
-    cur.execute("""SELECT child.partNumber, child.name, child.amount, parent.partNumber, child.Drawing, child.Checked 
+    cur.execute("""SELECT child.partNumber, child.name, child.amount, parent.partNumber, child.Drawing, child.Checked, child.Is_borrowed
     FROM assembly_details as child left join assembly_details as parent ON child.parent_id= parent.id
     """)
     details = cur.fetchall()
     return details
 
-def update_detail_status(partNumber, drawing, checked):
+def update_detail_status(partNumber, drawing, checked,is_borrowed):
     print(drawing, checked)
-    cur.execute("""UPDATE  assembly_details SET Drawing = ?, Checked = ? WHERE partNumber = ?""", (drawing, checked, partNumber))
+    cur.execute("""UPDATE  assembly_details SET Drawing = ?, Checked = ?, Is_borrowed = ? WHERE partNumber = ?""", (drawing, checked, is_borrowed, partNumber))
     con.commit()
     return True
 
