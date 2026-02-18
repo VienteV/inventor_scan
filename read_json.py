@@ -15,9 +15,8 @@ def get_amount(name):
 
 
 for i in assembly:
-    amount = get_amount(i["name"])
     if "КЛГИ" in i["partNumber"]:
         try:
-            db.inset_into_details(i["partNumber"], i["Description"], amount, i["parent"])
+            db.insert_into_details(i["partNumber"], i["Description"], 1, i["parent"])
         except Exception as e:
-            print(e)
+            print(e, i)
